@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>珠宝活动报价计算器 · 演示版</title>
+<style>
+  body { max-width: 38rem; margin: 2rem auto; padding: 0 1rem; font: 1rem/1.6 system-ui; }
+  label, output { display: block; margin: .65rem 0; }
+  output { white-space: pre-line; }
+</style>
+<h1>珠宝活动报价计算器</h1>
+<p>演示版 · 以下均为虚构优惠。输入已确认的单件零售价和克重。</p>
+<form id="quote">
+  <label>活动周期
+    <select name="period">
+      <option value="daily">日常 · 九折</option>
+      <option value="promo">大促 · 八折，满两件减 ¥50</option>
+    </select>
+  </label>
+  <label>单件零售价（元） <input name="price" type="number" min=".01" step=".01" value="1000" required></label>
+  <label>数量 <input name="quantity" type="number" min="1" step="1" value="2" required></label>
+  <label>单件克重（克） <input name="weight" type="number" min=".01" step=".01" value="2" required></label>
+  <label><input name="deposit" type="checkbox"> 大促定金：付 ¥100 抵 ¥150</label>
+  <label><input name="member" type="checkbox"> 会员：剩余应付再打九五折</label>
+  <button type="submit">计算报价</button>
+</form>
+<output id="result" aria-live="polite"></output>
+<script>
+  const form = document.querySelector("#quote");
+  const result = document.querySelector("#result");
+  const money = cents => `¥${(cents / 100).toFixed(2)}`;
+
+  form.addEventListener("input", () => { result.textContent = ""; });
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const promo = data.get("period") === "promo";
+    const quantity = Number(data.get("quantity"));
+    const subtotal = Math.round(Number(data.get("price")) * 100) * quantity;
+    const discounted = Math.round(subtotal * (promo ? 80 : 90) / 100);
+    const reduction = promo && quantity >= 2 ? Math.min(5000, discounted) : 0;
+    const afterReduction = discounted - reduction;
+    const useDeposit = data.has("deposit");
+    if (useDeposit && (!promo || afterReduction < 15000)) {
+      result.textContent = "定金仅适用于大促，且满减后金额至少为 ¥150。";
+      return;
+    }
+    const paid = useDeposit ? 10000 : 0;
+    const credit = useDeposit ? 15000 : 0;
+    const beforeMember = afterReduction - credit;
+    const balance = Math.round(beforeMember * (data.has("member") ? 95 : 100) / 100);
+    const total = paid + balance;
+    const weight = Number(data.get("weight")) * quantity;
+
+    result.textContent = [
+      `原价 ${money(subtotal)} → 单品折后 ${money(discounted)} → 满减 ${money(reduction)}`,
+      `定金实付 ${money(paid)}，抵扣 ${money(credit)}，会员优惠 ${money(beforeMember - balance)}`,
+      `${useDeposit ? "尾款" : "应付"} ${money(balance)}，总实付 ${money(total)}`,
+      `总克重 ${weight.toFixed(2)} 克，折合 ${money(Math.round(total / weight))} / 克`
+    ].join("\n");
+  });
+</script>
